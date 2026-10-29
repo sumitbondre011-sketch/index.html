@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Attendance Management System</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f0f4f8;
+    color: #243247;
+}
+
+header {
+    background: #153e75;
+    color: white;
+    padding: 22px 15px;
+    text-align: center;
+}
+
+header h1 { margin: 0 0 8px; font-size: 25px; }
+header p { margin: 0; }
+
+.container {
+    width: 95%;
+    max-width: 1100px;
+    margin: 22px auto;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px #00000012;
+}
+
+h2 {
+    color: #153e75;
+    font-size: 20px;
+    margin-top: 0;
+}
+
+input, select, button {
+    width: 100%;
+    padding: 11px;
+    margin: 6px 0;
+    border: 1px solid #ccd5e0;
+    border-radius: 6px;
+    font-size: 15px;
+}
+
+button {
+    background: #1765b1;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover { background: #104b87; }
+button.danger { background: #c0392b; }
+button.secondary { background: #526477; }
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.stat {
+    background: #e8f1ff;
+    padding: 16px;
+    border-radius: 9px;
+    text-align: center;
+}
+
+.stat strong {
+    display: block;
+    font-size: 26px;
+    color: #153e75;
+    margin-top: 8px;
+}
+
+#qrcode {
+    display: flex;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+#reader {
+    width: 100%;
+    max-width: 450px;
+    margin: 12px auto;
+}
+
+.notice {
+    padding: 12px;
+    background: #fff7df;
+    border-radius: 7px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#message {
+    padding: 12px;
+    border-radius: 7px;
+    margin: 12px 0;
+    overflow-wrap: anywhere;
+}
+
+.success { background: #d8f5df; color: #14532d; }
+.error { background: #ffe1e1; color: #8b1717; }
+.hidden { display: none !important; }
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 650px;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #dbe1e8;
+    text-align: left;
+    font-size: 14px;
+}
+
+th { background: #e8f1ff; }
+.table-wrap { overflow-x: auto; }
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #526477;
+}
+
+@media print {
+    button, #studentSection, #loginSection, footer {
+        display: none !important;
+    }
+    body { background: white; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>QR-Based Attendance System</h1>
+    <p>Smart Attendance Management Using GPS Geolocation</p>
+</header>
+
+<div class="container">
+
+    <section class="card" id="loginSection">
+        <h2>Teacher / Admin Login</h2>
+        <p>Use the demonstration credentials below.</p>
+
+        <label for="username">Username</label>
+        <input id="username" value="admin" autocomplete="username">
+
+        <label for="password">Password</label>
+        <input id="password" type="password"
+               value="admin123" autocomplete="current-password">
+
+        <button onclick="login()">Login</button>
+
+        <p class="notice">
+            Demo username: admin<br>
+            Demo password: admin123<br>
+            This demonstration login is not suitable for production.
+        </p>
+    </section>
+
+    <section id="teacherSection" class="hidden">
+
+        <div class="card">
+            <h2>Teacher Dashboard</h2>
+            <p>Manage students, classroom location and attendance.</p>
+            <button class="secondary" onclick="logout()">Logout</button>
+
+            <div class="stats">
+                <div class="stat">
+                    Total Students
+                    <strong id="totalStudents">0</strong>
+                </div>
+                <div class="stat">
+                    Attendance Records
+                    <strong id="totalAttendance">0</strong>
+                </div>
+                <div class="stat">
+                    Today's Attendance
+                    <strong id="todayAttendance">0</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+
+            <div class="card">
+                <h2>1. Register Student</h2>
+
+                <input id="studentName"
+                       placeholder="Enter student full name">
+
+                <input id="studentRoll"
+                       placeholder="Enter roll number">
+
+                <button onclick="addStudent()">Register Student</button>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Name</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>2. Set Classroom Location</h2>
+
+                <p id="locationStatus">
+                    Classroom GPS is not configured.
+                </p>
+
+                <label for="radius">
+                    Allowed distance from classroom (metres)
+                </label>
+
+                <input id="radius" type="number"
+                       min="10" max="1000" value="100">
+
+                <button onclick="setClassroomLocation()">
+                    Save Current GPS as Classroom
+                </button>
+
+                <p class="notice">
+                    Stand inside the classroom and allow location access.
+                    GPS accuracy varies, especially indoors.
+                </p>
+            </div>
+
+            <div class="card">
+                <h2>3. Generate Attendance QR</h2>
+
+                <p>Create a new classroom attendance session.</p>
+
+                <button onclick="generateQR()">
+                    Generate New QR Code
+                </button>
+
+                <div id="qrcode"></div>
+
+                <p id="sessionStatus">No active session.</p>
+
+                <button class="secondary" onclick="printQR()">
+                    Print QR Code
+                </button>
+            </div>
+
+        </div>
+
+        <div class="card">
+            <h2>4. Attendance Report</h2>
+
+            <input id="searchAttendance"
+                   placeholder="Search by name or roll number"
+                   oninput="renderAttendance()">
+
+            <button onclick="exportCSV()">Download Attendance CSV</button>
+
+            <button class="secondary" onclick="window.print()">
+                Print Report
+            </button>
+
+            <button class="danger" onclick="clearAttendance()">
+                Clear All Attendance Records
+            </button>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Roll Number</th>
+                            <th>Student Name</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>GPS Distance (m)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </section>
+
+    <section id="studentSection">
+        <div class="card">
+            <h2>Student Attendance Portal</h2>
+
+            <p>
+                Enter your registered roll number and scan the teacher's QR.
+            </p>
+
+            <input id="attendanceRoll"
+                   placeholder="Enter registered roll number">
+
+            <button onclick="startScanner()">Start QR Scanner</button>
+
+            <button class="secondary" onclick="stopScanner()">
+                Stop Scanner
+            </button>
+
+            <div id="reader"></div>
+            <div id="message" class="hidden"></div>
+
+            <p class="notice">
+                Allow camera and location permissions when prompted.
+                Scan the active QR code displayed by your teacher.
+                This demo requires student records to exist in this browser.
+            </p>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    QR Attendance Management System | Mini Project
+</footer>
+
+<script>
+"use strict";
+
+/*
+ EDUCATIONAL DEMO ONLY.
+ Data is stored in this browser's localStorage.
+ Separate devices cannot share sessions or records without a backend.
+*/
+
+const KEYS = {
+    students: "qrAttendance_students_v1",
+    records: "qrAttendance_records_v1",
+    classroom: "qrAttendance_classroom_v1",
+    session: "qrAttendance_session_v1"
+};
+
+let scanner = null;
+let scannerRunning = false;
+let processingScan = false;
+
+function readData(key, fallback) {
+    try {
+        const value = localStorage.getItem(key);
+        return value === null ? fallback : JSON.parse(value);
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function saveData(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getStudents() {
+    return readData(KEYS.students, []);
+}
+
+function getRecords() {
+    return readData(KEYS.records, []);
+}
+
+function getClassroom() {
+    return readData(KEYS.classroom, null);
+}
+
+function getSession() {
+    return readData(KEYS.session, null);
+}
+
+function showMessage(message, success) {
+    const box = document.getElementById("message");
+    box.textContent = message;
+    box.className = success ? "success" : "error";
+    box.classList.remove("hidden");
+}
+
+function login() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (username === "admin" && password === "admin123") {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("teacherSection").classList.remove("hidden");
+        renderAll();
+    } else {
+        alert("Invalid username or password.");
+    }
+}
+
+function logout() {
+    document.getElementById("teacherSection").classList.add("hidden");
+    document.getElementById("loginSection").classList.remove("hidden");
+}
+
+function addStudent() {
+    const name = document.getElementById("studentName").value.trim();
+    const roll = document.getElementById("studentRoll").value.trim();
+
+    if (!name || !roll) {
+        alert("Please enter both student name and roll number.");
+        return;
+    }
+
+    const students = getStudents();
+
+    if (students.some(s => s.roll.toLowerCase() === roll.toLowerCase())) {
+        alert("This roll number is already registered.");
+        return;
+    }
+
+    students.push({ name: name, roll: roll });
+    saveData(KEYS.students, students);
+
+    document.getElementById("studentName").value = "";
+    document.getElementById("studentRoll").value = "";
+
+    renderAll();
+    alert("Student registered successfully.");
+}
+
+function deleteStudent(roll) {
+    if (!confirm("Delete this student? Existing attendance records remain.")) {
+        return;
+    }
+
+    saveData(
+        KEYS.students,
+        getStudents().filter(s => s.roll !== roll)
+    );
+
+    renderAll();
+}
+
+function renderStudents() {
+    const tbody = document.getElementById("studentTable");
+    tbody.replaceChildren();
+
+    getStudents().forEach(student => {
+        const tr = document.createElement("tr");
+
+        [student.roll, student.name].forEach(value => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.appendChild(td);
+        });
+
+        const action = document.createElement("td");
+        const button = document.createElement("button");
+
+        button.textContent = "Delete";
+        button.className = "danger";
+        button.onclick = () => deleteStudent(student.roll);
+
+        action.appendChild(button);
+        tr.appendChild(action);
+        tbody.appendChild(tr);
+    });
+}
+
+function setClassroomLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by this browser.");
+        return;
+    }
+
+    const radius = Number(document.getElementById("radius").value);
+
+    if (!Number.isFinite(radius) || radius < 10 || radius > 1000) {
+        alert("Enter a radius between 10 and 1000 metres.");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            const classroom = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                radius: radius,
+                accuracy: position.coords.accuracy
+            };
+
+            saveData(KEYS.classroom, classroom);
+            updateLocationStatus();
+
+            alert(
+                "Classroom location saved.\nGPS accuracy reported: " +
+                Math.round(position.coords.accuracy) + " metres."
+            );
+        },
+        error => {
+            alert("Unable to get classroom location: " + error.message);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+        }
+    );
+}
+
+function updateLocationStatus() {
+    const classroom = getClassroom();
+    const element = document.getElementById("locationStatus");
+
+    if (!classroom) {
+        element.textContent = "Classroom GPS is not configured.";
+        return;
+    }
+
+    element.textContent =
+        "Classroom GPS: " +
+        classroom.lat.toFixed(6) + ", " +
+        classroom.lon.toFixed(6) +
+        " | Allowed radius: " + classroom.radius + " m";
+}
+
+function distanceInMetres(lat1, lon1, lat2, lon2) {
+    const toRad = degrees => degrees * Math.PI / 180;
+    const earthRadius = 6371000;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+
+    return earthRadius * 2 *
+        Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function generateQR() {
+    const classroom = getClassroom();
+
+    if (!classroom) {
+        alert("First set the classroom GPS location.");
+        return;
+    }
+
+    if (typeof QRCode === "undefined") {
+        alert("QR library could not load. Check your internet connection.");
+        return;
+    }
+
+    const session = {
+        id: crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now().toString() + Math.random().toString(36).slice(2),
+        lat: classroom.lat,
+        lon: classroom.lon,
+        radius: classroom.radius,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 10 * 60 * 1000
+    };
+
+    saveData(KEYS.session, session);
+
+    const qrBox = document.getElementById("qrcode");
+    qrBox.replaceChildren();
+
+    const payload = JSON.stringify({
+        type: "QR_ATTENDANCE",
+        sessionId: session.id,
+        lat: session.lat,
+        lon: session.lon,
+        radius: session.radius,
+        expiresAt: session.expiresAt
+    });
+
+    new QRCode(qrBox, {
+        text: payload,
+        width: 220,
+        height: 220,
+        correctLevel: QRCode.CorrectLevel.M
+    });
+
+    document.getElementById("sessionStatus").textContent =
+        "Session active until " +
+        new Date(session.expiresAt).toLocaleTimeString() +
+        ". QR expires in 10 minutes.";
+
+    alert("Attendance QR generated. Ask students to scan it within 10 minutes.");
+}
+
+function printQR() {
+    if (!getSession()) {
+        alert("Generate an attendance QR first.");
+        return;
+    }
+
+    window.print();
+}
+
+function startScanner() {
+    if (typeof Html5Qrcode === "undefined") {
+        showMessage(
+            "Scanner library failed to load. Check your internet connection.",
+            false
+        );
+        return;
+    }
+
+    if (scannerRunning) return;
+
+    document.getElementById("reader").replaceChildren();
+
+    scanner = new Html5Qrcode("reader");
+    processingScan = false;
+
+    scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        decodedText => {
+            if (processingScan) return;
+            processingScan = true;
+
+            stopScanner().then(() => processAttendanceQR(decodedText));
+        },
+        () => {}
+    ).then(() => {
+        scannerRunning = true;
+        showMessage("Camera started. Point it at the teacher's QR code.", true);
+    }).catch(error => {
+        scanner = null;
+        scannerRunning = false;
+
+        showMessage(
+            "Cannot start camera. Use HTTPS and allow camera permission. " +
+            String(error),
+            false
+        );
+    });
+}
+
+async function stopScanner() {
+    if (!scanner) return;
+
+    const currentScanner = scanner;
+    scanner = null;
+
+    try {
+        if (scannerRunning) await currentScanner.stop();
+        await currentScanner.clear();
+    } catch (error) {
+        // Scanner may already be stopped.
+    }
+
+    scannerRunning = false;
+}
+
+function processAttendanceQR(decodedText) {
+    let qr;
+
+    try {
+        qr = JSON.parse(decodedText);
+    } catch (error) {
+        showMessage("Invalid QR code. Scan the teacher's attendance QR.", false);
+        return;
+    }
+
+    if (
+        qr.type !== "QR_ATTENDANCE" ||
+        !qr.sessionId ||
+        !Number.isFinite(qr.lat) ||
+        !Number.isFinite(qr.lon) ||
+        !Number.isFinite(qr.radius) ||
+        !Number.isFinite(qr.expiresAt)
+    ) {
+        showMessage("This is not a valid attendance QR code.", false);
+        return;
+    }
+
+    const currentSession = getSession();
+
+    /*
+      Separate phones cannot read the teacher's localStorage session.
+      A shared backend is required for real multi-device attendance.
+    */
+    if (
+        !currentSession ||
+        currentSession.id !== qr.sessionId ||
+        Date.now() > currentSession.expiresAt ||
+        Date.now() > qr.expiresAt
+    ) {
+        showMessage(
+            "Session is missing or expired in this browser. " +
+            "This single-browser demo cannot share sessions across devices.",
+            false
+        );
+        return;
+    }
+
+    const roll = document.getElementById("attendanceRoll").value.trim();
+
+    if (!roll) {
+        showMessage("Enter your registered roll number before scanning.", false);
+        return;
+    }
+
+    const student = getStudents().find(
+        s => s.roll.toLowerCase() === roll.toLowerCase()
+    );
+
+    if (!student) {
+        showMessage("Student not registered. Ask the teacher to register you.", false);
+        return;
+    }
+
+    const today = new Date().toLocaleDateString("en-CA");
+
+    const duplicate = getRecords().some(
+        record =>
+            record.roll.toLowerCase() === roll.toLowerCase() &&
+            record.date === today
+    );
+
+    if (duplicate) {
+        showMessage("Attendance already marked for this student today.", false);
+        return;
+    }
+
+    if (!navigator.geolocation) {
+        showMessage("This browser does not support GPS location.", false);
+        return;
+    }
+
+    showMessage("Checking your classroom location...", true);
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            const distance = distanceInMetres(
+                position.coords.latitude,
+                position.coords.longitude,
+                qr.lat,
+                qr.lon
+            );
+
+            /*
+              Testing limit: 250 metres.
+              This is less precise and does not prove classroom presence.
+            */
+            if (position.coords.accuracy > 250) {
+                showMessage(
+                    "GPS accuracy is too low (" +
+                    Math.round(position.coords.accuracy) +
+                    " m). Try again near a window or outdoors.",
+                    false
+                );
+                return;
+            }
+
+            if (distance > qr.radius) {
+                showMessage(
+                    "Attendance rejected. You are approximately " +
+                    Math.round(distance) +
+                    " metres from the classroom; the allowed radius is " +
+                    qr.radius + " metres.",
+                    false
+                );
+                return;
+            }
+
+            const now = new Date();
+
+            const record = {
+                roll: student.roll,
+                name: student.name,
+                date: now.toLocaleDateString("en-CA"),
+                time: now.toLocaleTimeString(),
+                distance: Math.round(distance),
+                status: "Present",
+                sessionId: qr.sessionId
+            };
+
+            const records = getRecords();
+            records.push(record);
+            saveData(KEYS.records, records);
+
+            showMessage(
+                "Attendance marked successfully for " +
+                student.name + " (" + student.roll + ").",
+                true
+            );
+        },
+        error => {
+            showMessage(
+                "Could not verify location: " + error.message +
+                ". Allow location access and try again.",
+                false
+            );
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+        }
+    );
+}
+
+function renderAttendance() {
+    const tbody = document.getElementById("attendanceTable");
+    tbody.replaceChildren();
+
+    const query = (
+        document.getElementById("searchAttendance").value || ""
+    ).toLowerCase();
+
+    const records = getRecords().filter(record =>
+        record.name.toLowerCase().includes(query) ||
+        record.roll.toLowerCase().includes(query)
+    );
+
+    records.slice().reverse().forEach(record => {
+        const tr = document.createElement("tr");
+
+        [
+            record.roll,
+            record.name,
+            record.date,
+            record.time,
+            String(record.distance),
+            record.status
+        ].forEach(value => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+function renderStats() {
+    const records = getRecords();
+    const today = new Date().toLocaleDateString("en-CA");
+
+    document.getElementById("totalStudents").textContent =
+        getStudents().length;
+
+    document.getElementById("totalAttendance").textContent =
+        records.length;
+
+    document.getElementById("todayAttendance").textContent =
+        records.filter(record => record.date === today).length;
+}
+
+function renderAll() {
+    renderStudents();
+    renderAttendance();
+    renderStats();
+    updateLocationStatus();
+}
+
+function exportCSV() {
+    const records = getRecords();
+
+    if (records.length === 0) {
+        alert("There are no attendance records to export.");
+        return;
+    }
+
+    const headers = [
+        "Roll Number", "Student Name", "Date",
+        "Time", "Distance (metres)", "Status"
+    ];
+
+    const rows = records.map(record => [
+        record.roll,
+        record.name,
+        record.date,
+        record.time,
+        record.distance,
+        record.status
+    ]);
+
+    function escapeCSV(value) {
+        return '"' + String(value).replace(/"/g, '""') + '"';
+    }
+
+    const csv = [headers, ...rows]
+        .map(row => row.map(escapeCSV).join(","))
+        .join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+        type: "text/csv;charset=utf-8;"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "attendance_report.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+}
+
+function clearAttendance() {
+    if (!confirm("Delete every attendance record? This cannot be undone.")) {
+        return;
+    }
+
+    saveData(KEYS.records, []);
+    renderAll();
+}
+
+renderAll();
+</script>
+
+</body>
+</html>
